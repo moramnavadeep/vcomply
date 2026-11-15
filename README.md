@@ -3,7 +3,7 @@
 **A personalised statutory compliance calendar for Indian startups.**
 Answer a few questions about your company and get every GST, TDS, PF/ESI, income-tax and MCA deadline that applies to you for the year, with the reason it applies and what being late costs.
 
-- **Live app:** <DEPLOYED_URL>
+- **Live app:** https://moramnavadeep.github.io/vcomply/
 - **Product write-up:** [docs/PRODUCT_WRITEUP.md](docs/PRODUCT_WRITEUP.md)
 - **Test plan:** [docs/TEST_PLAN.md](docs/TEST_PLAN.md)
 
@@ -43,8 +43,8 @@ Niyam's improvement is narrow and specific: **only the filings that apply to you
 Requires Node.js 20 or newer.
 
 ```bash
-git clone <REPO_URL>
-cd niyam
+git clone https://github.com/moramnavadeep/vcomply.git
+cd vcomply
 npm install
 npm run dev
 ```
