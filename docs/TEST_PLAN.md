@@ -54,7 +54,7 @@ Performed in Chromium before submission.
 - [x] Sample company shows two overdue items and a rupee exposure
 - [x] 375 px wide viewport: no horizontal scrolling, all controls reachable
 - [x] Local API: sign up, sign in from a wiped browser, wrong password, live feed, conflict from a second writer
-- [ ] Deployed API with Postgres: sign up, sign in, sync, feed (verify after deploy)
+- [x] Deployed API with Postgres, by script with a throwaway account: sign up, duplicate email (409), sign in, wrong password (401), save, stale save (409), read back identical to what was sent, feed with the expected 28 events, unknown feed (404), no token (401), CORS allows only the frontend origin, delete account (204) then token rejected (401)
 - [ ] `.ics` file imports into Google Calendar with reminders (verify after deploy)
 - [ ] CSV opens in Excel with `₹` and dates intact (verify after deploy)
 - [ ] Dark mode contrast on a device set to dark

@@ -4,6 +4,7 @@
 Answer a few questions about your company and get every GST, TDS, PF/ESI, income-tax and MCA deadline that applies to you for the year, with the reason it applies and what being late costs.
 
 - **Live app:** https://moramnavadeep.github.io/vcomply/
+- **Live API:** https://niyam-api.onrender.com/api/health (free tier: the first request after idle time can take up to a minute)
 - **Product write-up:** [docs/PRODUCT_WRITEUP.md](docs/PRODUCT_WRITEUP.md)
 - **Test plan:** [docs/TEST_PLAN.md](docs/TEST_PLAN.md)
 
@@ -145,7 +146,7 @@ The manual checklist and the reasoning behind what is and is not automated are i
 - **Simplifying assumptions.** AOC-4 and MGT-7 dates assume the AGM is held on 30 September. The tax-audit threshold assumes at least 95% digital receipts. QRMP GSTR-3B uses the 22nd (some states get the 24th). Weekends and public holidays do not shift dates.
 - **One company per account, one person per account.** There are no teams or roles. Without an account, data lives only in `localStorage`, and clearing site data deletes it (use Backup).
 - **Conflicts are resolved whole.** If two devices edit before either syncs, the first save wins and the other device's unsynced edit is replaced; there is no field-level merge.
-- **Postgres store is not covered by automated tests.** The API tests use the in-memory store behind the same interface; the SQL is exercised only against a deployed database.
+- **Postgres store is not covered by automated tests.** The API tests use the in-memory store behind the same interface. The SQL was verified by hand against the deployed database (see the test plan), not in CI.
 - **Free-tier API hosting sleeps.** The first request after idle time can take up to a minute; the app stays usable locally meanwhile.
 - **Account basics only.** No email verification or password reset. The session token is kept in `localStorage`. The rate limiter is per server instance.
 - **No push or email reminders.** Reminders come from the calendar feed or exported file.
