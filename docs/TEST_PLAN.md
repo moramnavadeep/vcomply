@@ -6,7 +6,7 @@ The risk in this product is concentrated in one place: **telling someone the wro
 
 Run everything with `npm test`. CI runs type-check, tests and build on every push.
 
-## Automated coverage (129 tests)
+## Automated coverage (168 tests)
 
 | Area | File | What is checked |
 | --- | --- | --- |
@@ -21,6 +21,8 @@ Run everything with `npm test`. CI runs type-check, tests and build on every pus
 | Untrusted input | `src/state/store.test.ts` | Ten kinds of malformed backup rejected; corrupt localStorage falls back to a clean start; storage write failure reported, not thrown |
 | iCalendar | `src/export/export.test.ts` | CRLF endings; every line within 75 bytes; multi-byte `₹` never split; escaping; stable UIDs; empty calendar |
 | CSV | `src/export/export.test.ts` | Quoting; formula-injection guard on free text; numbers left intact |
+| API | `server/app.test.ts` | Real HTTP against the Express app: registration rules, duplicate email, identical answer for wrong password and unknown email, hash never returned, rate limit, token tampering, revision conflict returns newer state, accounts isolated, malformed JSON, oversized body, feed contents and 404s, CORS allow-list |
+| Sync | `src/sync/sync.test.tsx` | Scripted fake API: new device adopts account data, failed sign-in, unreachable server leaves the app usable, upload after edits, adopting a newer version on conflict, sign-out keeps local data |
 | UI flows | `src/App.test.tsx` | Onboarding validation; PF/ESI defaults from head count; persistence across reload; file late and reopen; future date refused; Escape closes dialog; filters and empty search; profile edit keeps records; bad backup files; delete needs confirmation |
 
 ## Edge cases handled deliberately
@@ -37,6 +39,9 @@ Run everything with `npm test`. CI runs type-check, tests and build on every pus
 | Backup that is not JSON, wrong version, or too large | Readable error; existing data untouched |
 | Formula typed into a note field | Neutralised in the CSV export |
 | Zero turnover, zero employees | Accepted: a brand-new company is a valid user |
+| Sync server unreachable or asleep | Message shown; all local features keep working |
+| Two devices save at once | Second save is rejected and that device adopts the first |
+| Sign in on a device that already has different data | Asks which copy to keep |
 
 ## Manual checklist
 
@@ -48,6 +53,8 @@ Performed in Chromium before submission.
 - [x] Filing dialog opens, records an acknowledgement number, and the activity log shows it
 - [x] Sample company shows two overdue items and a rupee exposure
 - [x] 375 px wide viewport: no horizontal scrolling, all controls reachable
+- [x] Local API: sign up, sign in from a wiped browser, wrong password, live feed, conflict from a second writer
+- [ ] Deployed API with Postgres: sign up, sign in, sync, feed (verify after deploy)
 - [ ] `.ics` file imports into Google Calendar with reminders (verify after deploy)
 - [ ] CSV opens in Excel with `₹` and dates intact (verify after deploy)
 - [ ] Dark mode contrast on a device set to dark
@@ -56,4 +63,5 @@ Performed in Chromium before submission.
 ## Not tested
 
 - Browsers other than Chromium.
+- The Postgres store, in automated tests: the API suite runs against the in-memory store that implements the same interface.
 - Correctness of the statutory rules against primary sources: they are encoded from my understanding of the law and listed as a limitation in the README.

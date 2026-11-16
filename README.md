@@ -35,7 +35,7 @@ Niyam's improvement is narrow and specific: **only the filings that apply to you
 3. **Puts a price on delay.** The dashboard adds up late fees already accrued and how fast they grow ("₹200 in late fees so far, growing by ₹50 every day you wait"). Where the penalty is interest on an unknown amount, it says so instead of inventing a number.
 4. **Records evidence.** Mark a filing done with its date and acknowledgement number. Late filings are flagged. Every change lands in an append-only activity log.
 5. **Fits existing tools.** Export open deadlines as an `.ics` file (Google Calendar, Outlook) with a reminder three days ahead; export a CSV compliance register for the CA or an auditor; print the calendar.
-6. **Private by design.** No account and no server. Data stays in the browser, with JSON backup and restore to move it.
+6. **Local-first, account optional.** Everything works with no sign-up: data stays in the browser, with JSON backup and restore. Creating an account adds sync across devices and a **live calendar feed** that calendar apps subscribe to, so filed items drop off your calendar by themselves.
 7. **Try it without typing.** "Explore with a sample company" loads a realistic mid-year state, including two missed deadlines.
 
 ## Run it locally
@@ -54,19 +54,41 @@ Then open the URL Vite prints (normally http://localhost:5173).
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Start the dev server with hot reload |
-| `npm test` | Run the 129 unit and UI tests once |
+| `npm run dev:api` | Start the API on port 8787 (in-memory store, restarts on change) |
+| `npm start` | Start the API as in production |
+| `npm test` | Run the 168 unit, API and UI tests once |
 | `npm run typecheck` | Type-check with strict TypeScript |
 | `npm run build` | Type-check and build to `dist/` |
 | `npm run preview` | Serve the production build locally |
 
-There are no environment variables, API keys or secrets: the app has no backend.
+That is enough to use the app in local-only mode. To try accounts and sync as well, run `npm run dev:api` in a second terminal; in development the frontend looks for the API at `http://localhost:8787` and the API keeps data in memory, so no database is needed.
+
+Configuration is by environment variable, documented in [.env.example](.env.example). Nothing secret is committed: the token-signing secret and database URL exist only in the host's environment.
 
 ## Deployment
 
-The build is fully static (`dist/`) and uses relative asset paths, so it runs on any static host.
+The app is two independently deployed parts. The frontend never depends on the API being up.
+
+**Frontend.** The build is fully static (`dist/`) and uses relative asset paths, so it runs on any static host.
 
 - **GitHub Pages (configured):** `.github/workflows/ci.yml` type-checks, tests and builds on every push, and deploys `main` to Pages. One-time setup: *Settings → Pages → Source → GitHub Actions*.
 - **Vercel / Netlify:** import the repository; the build command is `npm run build` and the output directory is `dist` (`netlify.toml` is included).
+
+**API.** `render.yaml` is a Render blueprint that creates the Node web service and a Postgres database, generates the token-signing secret, and restricts CORS to the frontend's origin. Once it is up, put its URL in `.env.production` as `VITE_API_URL` and push; the frontend then shows the sign-in options. Without that variable the frontend builds in local-only mode.
+
+## API
+
+| Method and path | Auth | Purpose |
+| --- | --- | --- |
+| `GET /api/health` | none | Liveness check |
+| `POST /api/auth/register` | none | Create an account; returns a session token |
+| `POST /api/auth/login` | none | Sign in; returns a session token |
+| `GET /api/state` | Bearer token | The account's saved calendar, its revision and feed token |
+| `PUT /api/state` | Bearer token | Save the calendar; rejected with `409` if `baseRevision` is stale |
+| `DELETE /api/account` | Bearer token | Delete the account and its data |
+| `GET /api/feed/<token>.ics` | token in URL | Live iCalendar feed of open deadlines |
+
+Passwords are hashed with scrypt and a per-user salt. Sign-in attempts are rate-limited per IP. Sessions are 30-day signed tokens (JWT, HS256). Every SQL statement is parameterised, and saved state passes the same validator the browser applies to backup files.
 
 ## How the code is organised
 
@@ -80,8 +102,15 @@ src/
   state/
     store.ts       Reducer, validation, localStorage persistence, sample data
   export/        iCalendar, CSV and file download
+  sync/          API client and the hook that keeps browser and account in step
   components/    Screens: onboarding form, dashboard, calendar, filing dialog, log, settings
   App.tsx        Wires state to screens
+server/
+  app.ts           Express routes; takes its store and config as arguments
+  auth.ts          Password hashing and session tokens
+  store.ts         Store interface and the in-memory implementation
+  postgresStore.ts Postgres implementation
+  index.ts         Reads the environment and starts the server
 ```
 
 Design choices worth knowing before reading the code:
@@ -89,15 +118,20 @@ Design choices worth knowing before reading the code:
 - **Rules are data.** Each filing is one object in `rules.ts` with two small pure functions: `applies(profile)` returns the reason it applies (or `null`), and `schedule(year)` returns its due dates. Adding a filing touches one file.
 - **The reducer never reads the clock.** Every action carries its own timestamp and "today", so state transitions are pure and tested without mocking time.
 - **Obligation ids are stable** (`gstr3b-monthly:2026-10`). Editing the company profile regenerates the calendar without losing filing records.
+- **One rules engine, two runtimes.** The server imports `src/domain` and `src/export` directly to build the calendar feed, so browser and server can never disagree about a due date.
+- **Local-first sync.** Every change is saved in the browser at once and uploaded after a short pause. The server keeps a revision number per account; a save based on a stale revision gets `409` and the client adopts the newer version instead of overwriting it.
+- **The API depends on an interface, not a database.** `createApp(store, config)` runs against memory in tests and Postgres in production.
 - **Everything untrusted is validated.** The same `parseState` guards both localStorage and imported backups; corrupt data falls back to a clean start rather than a crash.
 
 ## Testing
 
-129 automated tests (Vitest + Testing Library) run in CI on every push:
+168 automated tests (Vitest + Testing Library) run in CI on every push:
 
 - **Rules engine:** applicability thresholds at their boundaries, every schedule's dates, statuses on either side of each cut-off, penalty caps.
 - **State:** backfill, reopen, profile edits preserving records, ten kinds of malformed backup, storage quota failure.
 - **Exports:** RFC 5545 line folding (including multi-byte `₹`), escaping, CSV formula-injection guard.
+- **API (over real HTTP):** registration and sign-in, hash and token tampering, rate limiting, revision conflicts, account isolation, malformed and oversized bodies, the calendar feed, CORS.
+- **Sync:** sign-in on a new device, failed sign-in, unreachable server, upload after changes, adopting a newer version.
 - **UI flows:** onboarding validation, filing late, reopening, filters, restore errors, delete confirmation.
 
 The manual checklist and the reasoning behind what is and is not automated are in [docs/TEST_PLAN.md](docs/TEST_PLAN.md).
@@ -109,12 +143,16 @@ The manual checklist and the reasoning behind what is and is not automated are i
 - **Indicative penalties.** Late fees are statutory per-day or flat amounts at their upper slab. Interest on unpaid tax is not estimated because the app does not know the tax amount.
 - **Familiar form names.** Income-tax forms are shown under their long-standing names (24Q, 26Q, Form 16, 3CD); the Income-tax Act, 2025 renumbers some of them.
 - **Simplifying assumptions.** AOC-4 and MGT-7 dates assume the AGM is held on 30 September. The tax-audit threshold assumes at least 95% digital receipts. QRMP GSTR-3B uses the 22nd (some states get the 24th). Weekends and public holidays do not shift dates.
-- **One browser, one company.** Data lives in `localStorage`: clearing site data deletes it (use Backup), and there is no multi-user access or sync.
-- **No push or email reminders.** Reminders come from the exported calendar file.
+- **One company per account, one person per account.** There are no teams or roles. Without an account, data lives only in `localStorage`, and clearing site data deletes it (use Backup).
+- **Conflicts are resolved whole.** If two devices edit before either syncs, the first save wins and the other device's unsynced edit is replaced; there is no field-level merge.
+- **Postgres store is not covered by automated tests.** The API tests use the in-memory store behind the same interface; the SQL is exercised only against a deployed database.
+- **Free-tier API hosting sleeps.** The first request after idle time can take up to a minute; the app stays usable locally meanwhile.
+- **Account basics only.** No email verification or password reset. The session token is kept in `localStorage`. The rate limiter is per server instance.
+- **No push or email reminders.** Reminders come from the calendar feed or exported file.
 - **Dark mode** follows the system setting and has had less visual testing than light mode.
 
 ## Built with
 
-[React](https://react.dev) 19, [TypeScript](https://www.typescriptlang.org), [Vite](https://vite.dev), [Vitest](https://vitest.dev) and [Testing Library](https://testing-library.com). No UI kit, template or starter was used; styling is hand-written CSS.
+Frontend: [React](https://react.dev) 19, [TypeScript](https://www.typescriptlang.org), [Vite](https://vite.dev). API: [Express](https://expressjs.com) 5, [node-postgres](https://node-postgres.com), [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken), run with [tsx](https://tsx.is). Tests: [Vitest](https://vitest.dev) and [Testing Library](https://testing-library.com). No UI kit, template or starter was used; styling is hand-written CSS.
 
 I used Claude Code as an AI pair programmer while building this, as the assignment permits. The product decisions, rule set and trade-offs are mine, and I can walk through every part of the code.

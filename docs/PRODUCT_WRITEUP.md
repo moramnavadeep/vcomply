@@ -12,11 +12,11 @@ The user is the founder or operations lead of a 1 to 50 person private limited c
 
 **Show the cost in rupees.** "2 overdue" is easy to ignore; "₹200 so far, growing ₹50 a day" is not. Where a penalty depends on unpaid tax, the app says so rather than inventing a figure.
 
-**No backend, no sign-up.** Data stays in the browser, with file backup. Value arrives within a minute and data never leaves the device. The price is no sync and no email reminders, which calendar export partly covers.
+**Local-first, account optional.** The whole product works with no sign-up, so value arrives within a minute. An account adds only what needs a server: sync across devices and a calendar feed that updates itself. If the API is down, the app still works.
 
 ## 3. What I cut, and what comes next
 
-Cut: state-level laws (they differ by state), multi-user access, email reminders, document upload, holiday-adjusted dates.
+Cut: state-level laws (they differ by state), teams and roles, email reminders, password reset, document upload, holiday-adjusted dates.
 
 Next: government-notified due-date extensions, which is where static calendars go stale; then a read-only view to share with the CA; then state rules, one state at a time.
 
