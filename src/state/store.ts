@@ -23,7 +23,8 @@ export type Action =
   | { type: 'filed'; obligation: Obligation; filedOn: IsoDate; reference: string; note: string; at: string }
   | { type: 'reopened'; obligation: Obligation; at: string }
   | { type: 'imported'; state: AppState; at: string }
-  | { type: 'sample_loaded'; state: AppState }
+  /** Swaps in a complete state as-is: sample data, or data downloaded from the user's account. */
+  | { type: 'replaced'; state: AppState }
   | { type: 'reset' };
 
 function logEntry(state: AppState, at: string, type: ActivityType, message: string, obligationId?: string): ActivityEntry[] {
@@ -116,7 +117,7 @@ export function reducer(state: AppState, action: Action): AppState {
         activity: logEntry(action.state, action.at, 'imported', 'Data restored from a backup file'),
       };
 
-    case 'sample_loaded':
+    case 'replaced':
       return action.state;
 
     case 'reset':

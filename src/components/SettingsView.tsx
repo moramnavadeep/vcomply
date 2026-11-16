@@ -5,6 +5,9 @@ import { buildRegisterCsv } from '../export/csv';
 import { downloadFile, slugify } from '../export/download';
 import { buildIcs } from '../export/ics';
 import { parseState } from '../state/store';
+import { cloudEnabled } from '../sync/api';
+import type { CloudSync } from '../sync/useCloudSync';
+import { CloudSyncCard } from './CloudSyncCard';
 import { ProfileForm } from './ProfileForm';
 
 /** Backups are a few kilobytes; anything far larger is not one of ours. */
@@ -22,9 +25,10 @@ interface SettingsViewProps {
   onImport: (state: AppState) => void;
   onReset: () => void;
   notify: (message: string) => void;
+  sync: CloudSync;
 }
 
-export function SettingsView({ state, profile, obligations, today, onSaveProfile, onImport, onReset, notify }: SettingsViewProps) {
+export function SettingsView({ state, profile, obligations, today, onSaveProfile, onImport, onReset, notify, sync }: SettingsViewProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
   const slug = slugify(profile.name);
@@ -74,6 +78,10 @@ export function SettingsView({ state, profile, obligations, today, onSaveProfile
 
   return (
     <div className="stack">
+      {cloudEnabled && (
+        <CloudSyncCard sync={sync} intro="Optional. Create an account to use this calendar on more than one device and to get a calendar feed that updates itself. Without an account, everything stays in this browser." />
+      )}
+
       <section className="card">
         <header className="card-header"><h2>Export</h2></header>
         <p className="card-intro">Take your deadlines to the tools you already use, or hand your accountant a register.</p>

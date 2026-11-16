@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { ActivityLog } from './components/ActivityLog';
 import { CalendarView } from './components/CalendarView';
+import { CloudSyncCard } from './components/CloudSyncCard';
 import { Dashboard } from './components/Dashboard';
 import { ObligationDialog } from './components/ObligationDialog';
 import { ProfileForm } from './components/ProfileForm';
@@ -9,6 +10,8 @@ import { financialYearLabel, formatDate, todayIso } from './domain/dates';
 import { generateObligations, summarize } from './domain/engine';
 import type { AppState, CompanyProfile, IsoDate, Obligation } from './domain/types';
 import { buildSampleState, loadState, reducer, saveState } from './state/store';
+import { cloudEnabled } from './sync/api';
+import { useCloudSync, type CloudSync } from './sync/useCloudSync';
 
 type View = 'dashboard' | 'calendar' | 'activity' | 'settings';
 
@@ -41,6 +44,9 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  const replaceState = useCallback((next: AppState) => dispatch({ type: 'replaced', state: next }), []);
+  const sync = useCloudSync({ state, replaceState, notify: setToast });
+
   const { profile, completions } = state;
   const hasProfile = profile !== null;
 
@@ -63,7 +69,7 @@ export default function App() {
   }
 
   function loadSample() {
-    dispatch({ type: 'sample_loaded', state: buildSampleState(today, now()) });
+    dispatch({ type: 'replaced', state: buildSampleState(today, now()) });
     setToast('Sample company loaded. Explore freely; nothing leaves your browser.');
   }
 
@@ -85,6 +91,8 @@ export default function App() {
   }
 
   function reset() {
+    // Sign out first, so the empty state is not mistaken for a change to upload.
+    sync.signOut();
     dispatch({ type: 'reset' });
     setView('dashboard');
     setToast('All data deleted');
@@ -99,7 +107,7 @@ export default function App() {
   if (!profile) {
     return (
       <>
-        <Welcome today={today} onSubmit={saveProfile} onLoadSample={loadSample} warning={storageWarning} />
+        <Welcome today={today} onSubmit={saveProfile} onLoadSample={loadSample} warning={storageWarning} sync={sync} />
         <Toast message={toast} />
       </>
     );
@@ -136,7 +144,7 @@ export default function App() {
         {view === 'calendar' && <CalendarView obligations={obligations} completions={completions} today={today} onOpen={(o) => setOpenId(o.id)} />}
         {view === 'activity' && <ActivityLog activity={state.activity} />}
         {view === 'settings' && (
-          <SettingsView state={state} profile={profile} obligations={obligations} today={today} onSaveProfile={saveProfile} onImport={importState} onReset={reset} notify={setToast} />
+          <SettingsView state={state} profile={profile} obligations={obligations} today={today} onSaveProfile={saveProfile} onImport={importState} onReset={reset} notify={setToast} sync={sync} />
         )}
       </main>
 
@@ -178,9 +186,10 @@ interface WelcomeProps {
   onSubmit: (profile: CompanyProfile, backfill: boolean) => void;
   onLoadSample: () => void;
   warning: React.ReactNode;
+  sync: CloudSync;
 }
 
-function Welcome({ today, onSubmit, onLoadSample, warning }: WelcomeProps) {
+function Welcome({ today, onSubmit, onLoadSample, warning, sync }: WelcomeProps) {
   return (
     <main className="welcome">
       <section className="welcome-pitch">
@@ -202,6 +211,11 @@ function Welcome({ today, onSubmit, onLoadSample, warning }: WelcomeProps) {
         <h2>Build your calendar</h2>
         <p className="card-intro">Takes about a minute. You can change any answer later.</p>
         <ProfileForm initial={null} today={today} submitLabel="Build my calendar" onSubmit={onSubmit} />
+        {cloudEnabled && (
+          <div className="welcome-sync">
+            <CloudSyncCard sync={sync} intro="Already use Niyam on another device? Sign in to bring your calendar here." />
+          </div>
+        )}
       </section>
     </main>
   );
